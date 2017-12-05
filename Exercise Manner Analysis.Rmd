@@ -1,0 +1,96 @@
+---
+title: "Practical Machine Learning - Exercise Manner Analysis"
+author: "Hanchen Liu"
+date: "2017 M12 4"
+output: html_document
+---
+
+## Executive summary
+
+It is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. This report will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, who were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set.
+
+We will do cross validation by subsetting the training data. After trying for a little bit, we choose the random forest model to predict the classe outcome. The expected out-of-sample error would be lower than 1%.
+
+Source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+
+## Load the data
+```{r}
+#load training set
+filename_train <- "train.csv"
+fileUrl_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(fileUrl_train, destfile = filename_train)
+train <- read.csv("train.csv")
+dim(train)
+#load testing set
+filename_test <- "test.csv"
+fileUrl_test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(fileUrl_test, destfile = filename_test)
+test <- read.csv("test.csv")
+dim(test)
+```
+
+## Process the data
+
+Taking a brief look at the training and testing data, we can easily find that a number of the variables are identifiers and should be removed before our analysis begin. Also, we need to clear out variables that are near zero (using function nearZeroVar()) or mostly NA (using function is.na()). 
+
+```{r}
+library(caret)
+#1. Remove identifiers
+train <- train[, -(1:7)]
+test <- test[, -(1:7)]
+
+#2. Remove near zero variables
+nzv_train <- nearZeroVar(train)
+train <- train[, -nzv_train]
+nzv_test <- nearZeroVar(test)
+test <- test[,-nzv_test]
+
+#3. Remove variables that are mostly NA (more than 95% NA)
+NA_train <- colSums(is.na(train))>=(nrow(train)*0.95)
+train <- train[, NA_train == FALSE]
+NA_test <- colSums(is.na(test))>=(nrow(test)*0.95)
+test <- test[,NA_test == FALSE]
+
+dim(train)
+dim(test)
+```
+
+Now we have only 53 relevant variables left. Before starting model selection, we subset training data for cross validation based on the outcome variable "Classe". We leave 25% of the training data as validation dataset.
+```{r}
+set.seed(1234)
+inTrain = createDataPartition(train$classe, p = 0.75, list = FALSE)
+train1 = train[inTrain, ]
+train2 = train[-inTrain, ]
+```
+
+## Model selection
+
+As the outcome variable "classe" is categorical, We start from a decision tree model.
+```{r}
+set.seed(4321)
+mod_rp <- train(classe~., method = "rpart", data = train1)
+pred_rp <- predict(mod_rp, train2)
+confusionMatrix(pred_rp, train2$classe)$overall
+```
+
+By testing our model with the validation subset, we got an accuracy lower than 50%. This means that the expected out-of-sample error is larger than 50%, which is far from satisfactory. 
+
+Therefore we proceed to fit a random forest model.
+```{r}
+set.seed(4321)
+fitControl <- trainControl(method = "cv", number = 3)
+mod_rf <- train(classe~., method = "rf", trControl = fitControl, data = train1)
+pred_rf <- predict(mod_rf, train2)
+confusionMatrix(pred_rf, train2$classe)$overall
+```
+
+By testing our model with the validation subset, we got an accuracy of above 99%. This means that the expected out-of-sample error is less than 1% only, which means the random forest model is a good choice.
+
+## Apply the model
+
+It is time the apply the previous random forest model to the testing data. The expected out-of-sample error for the predicted answers is lower than 1%.
+```{r}
+pred_rf_test <- predict(mod_rf, test)
+pred_rf_test
+```
+
