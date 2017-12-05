@@ -70,7 +70,7 @@ As the outcome variable "classe" is categorical, We start from a decision tree m
 set.seed(4321)
 mod_rp <- train(classe~., method = "rpart", data = train1)
 pred_rp <- predict(mod_rp, train2)
-confusionMatrix(pred_rp, train2$classe)$overall
+confusionMatrix(pred_rp, train2$classe)
 ```
 
 By testing our model with the validation subset, we got an accuracy lower than 50%. This means that the expected out-of-sample error is larger than 50%, which is far from satisfactory. 
@@ -81,7 +81,7 @@ set.seed(4321)
 fitControl <- trainControl(method = "cv", number = 3)
 mod_rf <- train(classe~., method = "rf", trControl = fitControl, data = train1)
 pred_rf <- predict(mod_rf, train2)
-confusionMatrix(pred_rf, train2$classe)$overall
+confusionMatrix(pred_rf, train2$classe)
 ```
 
 By testing our model with the validation subset, we got an accuracy of above 99%. This means that the expected out-of-sample error is less than 1% only, which means the random forest model is a good choice.
